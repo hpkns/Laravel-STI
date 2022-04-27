@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 
 /**
  * @property \UnitEnum stiTypeBindings  A list of models and their respective type names
- * @property string    stiAttributeName The name of the column that stores the STI mapping binding
+ * @property string    stiAttributeName The name of the column that stores the STI mapping binding (default: type)
  *
  * @method static Builder|QueryBuilder withoutSti()
  */
@@ -23,6 +23,9 @@ trait SingleTableInheritance
         self::addGlobalScope(new StiScope);
     }
 
+    /**
+     * Set the type attribute on model creation.
+     */
     public function initializeSingleTableInheritance()
     {
         $this->{$this->stiTypeKey()} = $this->getStiTypeForModel();
@@ -86,16 +89,9 @@ trait SingleTableInheritance
         return $qualified ? $type : $this->qualifyColumn($type);
     }
 
-    public function stiTypeAttribute(): ?string
-    {
-        return $this->{$this->stiTypeKey()};
-    }
-
-    public function setStiTypeAttribute()
-    {
-        $this->{$this->stiTypeKey()} = $this->getStiTypeForModel();
-    }
-
+    /**
+     * Return the STI type for a given model (or the current object if none is provided)
+     */
     public function getStiTypeForModel(?string $model = null): ?string
     {
         $model ??= get_class($this);
@@ -103,6 +99,9 @@ trait SingleTableInheritance
         return array_flip($this->stiTypeBindings)[$model] ?? null;
     }
 
+    /**
+     * Return the correct STI model based on the values stored in an attribute array.
+     */
     protected function getStiModelFromTypeAttributes(array $attributes): ?string
     {
         $type = $attributes[$this->stiTypeKey()] ?? null;
@@ -161,9 +160,15 @@ trait SingleTableInheritance
     }
 
     /**
-     * After update or create, if the model should be of a sub-type, we re-pull it from the database.
+     * After update or create, if the model should be of a subtype, we re-pull it from the database.
+     *
+     * Caution! By overloading this function, we changed slightly what attributes the model will contain. Normally,
+     * updateOrCreate returns the model with only the attributes set by the code in its $attributes array (because it
+     * only pushes the record to the database). Now, we re-create the model with the right type by pulling it from the
+     * database with a call to $this->fresh(). This causes the model's $attributes array to contain all the columns
+     * from the database as opposed to only the fields passed to the updateOrCreate method.
      */
-    protected function decorateUpdateOrCreate(...$args): static
+    protected function decoratedUpdateOrCreate(...$args): static
     {
         $model = $this->forwardCallTo($this->newQuery(), 'updateOrCreate', $args);
 
@@ -184,6 +189,6 @@ trait SingleTableInheritance
      */
     public static function updateOrCreate(...$args): static
     {
-        return (new static())->decorateUpdateOrCreate(...$args);
+        return (new static())->decoratedUpdateOrCreate(...$args);
     }
 }

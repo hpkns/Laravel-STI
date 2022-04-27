@@ -5,6 +5,7 @@ namespace Tests\Fakes;
 use Hpkns\Laravel\Sti\SingleTableInheritance;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Content extends Model
 {
@@ -19,4 +20,9 @@ class Content extends Model
     protected $guarded = [];
 
     protected string $stiAttributeName = 'type';
+
+    public function comments(): HasMany
+    {
+        return $this->hasMany(Comment::class);
+    }
 }

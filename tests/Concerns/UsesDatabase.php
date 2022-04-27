@@ -42,12 +42,18 @@ trait UsesDatabase
         $database->bootEloquent();
 
         Factory::useNamespace('Tests\\Factories\\');
+
         // We need to trick the Factory class into thinking that Tests\Fakes is the root namespace of the application.
         $container->bind(Application::class, fn() => new class {
             public function getNamespace(): string
             {
                 return 'Tests\\Fakes\\';
             }
+        });
+
+        // Make it possible to use faker in factories.
+        $container->singleton(\Faker\Generator::class, function() {
+            return \Faker\Factory::create();
         });
     }
 
@@ -66,7 +72,7 @@ trait UsesDatabase
      */
     protected function dropTables()
     {
-        foreach ($this->getMigrations() as $migration) {
+        foreach ($this->getMigrations(true) as $migration) {
             $migration->down();
         }
     }
@@ -74,9 +80,15 @@ trait UsesDatabase
     /**
      * Get all the available migrations.
      */
-    protected function getMigrations(): Generator
+    protected function getMigrations(bool $reverse = false): Generator
     {
-        foreach (glob(__DIR__ . '/../migrations/*.php') as $migration) {
+        $migrations = glob(__DIR__ . '/../migrations/*.php');
+
+        if ($reverse) {
+            array_reverse($migrations);
+        }
+
+        foreach ($migrations as $migration) {
             yield require $migration;
         }
     }

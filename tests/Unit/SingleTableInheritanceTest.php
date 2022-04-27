@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use Tests\Fakes\Comment;
 use Tests\Fakes\Content;
 use Tests\Fakes\Page;
 use Tests\Fakes\Post;
@@ -18,7 +19,7 @@ class SingleTableInheritanceTest extends TestCase
     }
 
     /**
-     * @uses \Hpkns\Laravel\Sti\SingleTableInheritance::initializeSingleTableInheritance()
+     * @covers \Hpkns\Laravel\Sti\SingleTableInheritance::initializeSingleTableInheritance()
      */
     public function test_type_is_well_set_on_creation()
     {
@@ -71,5 +72,27 @@ class SingleTableInheritanceTest extends TestCase
         $this->assertEquals($posts + $pages, Content::count());
         $this->assertEquals($posts, Post::count());
         $this->assertEquals($pages, Page::count());
+    }
+
+    public function test_can_disable_global_scope_although_i_dont_see_why_you_would_want_to_do_that($posts = 11, $pages = 13)
+    {
+        Post::factory($posts)->create();
+        Page::factory($pages)->create();
+
+        $this->assertEquals($total = $posts + $pages, Content::count());
+        $this->assertEquals($total, Post::withoutSti()->count());
+        $this->assertEquals($total, Page::withoutSti()->count());
+    }
+
+    /**
+     * @covers \Hpkns\Laravel\Sti\SingleTableInheritance::getForeignKey()
+     */
+    public function test_relations_work_with_proper_foreign_key($count = 10)
+    {
+        $post = Post::factory()->has(Comment::factory()->count($count))->create();
+
+        $post->fresh();
+
+        $this->assertCount($count, $post->comments);
     }
 }
