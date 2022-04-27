@@ -160,8 +160,10 @@ trait SingleTableInheritance
         return $model;
     }
 
-
-    public function overloadedUpdateOrCreate(...$args): static
+    /**
+     * After update or create, if the model should be of a sub-type, we re-pull it from the database.
+     */
+    protected function decorateUpdateOrCreate(...$args): static
     {
         $model = $this->forwardCallTo($this->newQuery(), 'updateOrCreate', $args);
 
@@ -177,8 +179,11 @@ trait SingleTableInheritance
         return $model;
     }
 
+    /**
+     * Allow updateOrCreate method to return the right type.
+     */
     public static function updateOrCreate(...$args): static
     {
-        return (new static())->overloadedUpdateOrCreate(...$args);
+        return (new static())->decorateUpdateOrCreate(...$args);
     }
 }
