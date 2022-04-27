@@ -11,6 +11,7 @@
         "illuminate/contracts": "^9.0"
     },
     "require-dev": {
+        "phpunit/phpunit": "^9.5",
         "fakerphp/faker": "^1.19"
     },
     "license": "MIT",
@@ -26,8 +27,5 @@
             "email": "thomas@hpkns.be"
         }
     ],
-    "minimum-stability": "stable",
-    "require-dev": {
-        "phpunit/phpunit": "^9.5"
-    }
+    "minimum-stability": "stable"
 }
