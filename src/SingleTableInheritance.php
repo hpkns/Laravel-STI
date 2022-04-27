@@ -20,8 +20,12 @@ trait SingleTableInheritance
      */
     public static function bootSingleTableInheritance(): void
     {
-        self::observe(StiObserver::class);
         self::addGlobalScope(new StiScope);
+    }
+
+    public function initializeSingleTableInheritance()
+    {
+        $this->{$this->stiTypeKey()} = $this->getStiTypeForModel();
     }
 
     /**
@@ -43,7 +47,7 @@ trait SingleTableInheritance
     {
         $table = Str::snake(class_basename(static::stiRootModel()));
 
-        return "{$table}_{$this->getKeyName}";
+        return "{$table}_{$this->getKeyName()}";
     }
 
     /**
@@ -73,15 +77,49 @@ trait SingleTableInheritance
     }
 
     /**
+     * Return the key used...
+     */
+    public function stiTypeKey($qualified = false): string
+    {
+        return $this->stiAttributeName ?? 'type';
+
+        return $qualified ? $type : $this->qualifyColumn($type);
+    }
+
+    public function stiTypeAttribute(): ?string
+    {
+        return $this->{$this->stiTypeKey()};
+    }
+
+    public function setStiTypeAttribute()
+    {
+        $this->{$this->stiTypeKey()} = $this->getStiTypeForModel();
+    }
+
+    public function getStiTypeForModel(?string $model = null): ?string
+    {
+        $model ??= get_class($this);
+
+        return array_flip($this->stiTypeBindings)[$model] ?? null;
+    }
+
+    protected function getStiModelFromTypeAttributes(array $attributes): ?string
+    {
+        $type = $attributes[$this->stiTypeKey()] ?? null;
+
+        if (empty($type)) {
+            return self::stiRootModel();
+        }
+
+        return $this->stiTypeBindings[$type] ?? self::stiRootModel();
+    }
+
+    /**
      * @inheritdoc
      */
     public function newFromBuilder($attributes = [], $connection = null): self
     {
-        $type = $this->stiTypeBindings[$attributes->{$this->stiAttributeName} ?? null] ?? $this->stiRootModel;
-
-        if (get_class($this) !== $this->stiRootModel && get_class($this) !== $type && !is_subclass_of($this, $type)) {
-            throw new RuntimeException('TBD');
-        }
+        $type = $this->getStiModelFromTypeAttributes((array)$attributes);
 
         $model = (new $type)->newInstance([], true);
 
@@ -101,16 +139,10 @@ trait SingleTableInheritance
      */
     public function newInstance($attributes = [], $exists = false): self
     {
-        $model = get_class($this);
+        $model = static::class;
 
-        // If the model in a child of the STI root class, we use it's class name to determine which class the new
-        // instance should have. We don't case that the attribute is not set, because the "creating" observer will catch
-        // that it's missing and fill it based on the current class.
-        // If the current class IS the root one, we check if we can find which class the code
-        // intends the model to be based on the STI name attribute.
-
-        if (get_class($this) === $this->stiRootModel) {
-            $model = $this->stiTypeBindings[$attributes[$this->stiAttributeName] ?? null] ?? $model;
+        if ($model === static::stiRootModel()) {
+            $model = $this->getStiModelFromTypeAttributes($attributes);
         }
 
         $model = new $model((array)$attributes);
@@ -128,39 +160,25 @@ trait SingleTableInheritance
         return $model;
     }
 
-    /**
-     * Get the string version of the STI type for the current model.
-     */
-    public function getStiTypeName(): ?string
-    {
-        return $this->getStiTypeForModel(get_class($this));
-    }
 
-    /**
-     * Return the type corresponding to a given model.
-     */
-    public function getStiTypeForModel(?string $model): ?string
+    public function overloadedUpdateOrCreate(...$args): static
     {
-        if ($model === null) {
-            return null;
+        $model = $this->forwardCallTo($this->newQuery(), 'updateOrCreate', $args);
+
+        if (!static::isStiRoot()) {
+            return $model;
         }
 
-        return array_flip($this->stiTypeBindings)[$model] ?? null;
+        if ($model->wasRecentlyCreated) {
+            $model = $model->fresh();
+            $model->wasRecentlyCreated = true;
+        }
+
+        return $model;
     }
 
-    /**
-     * Set the field that commands the STI mapping
-     */
-    public function setStiFieldAttribute(string $type)
+    public static function updateOrCreate(...$args): static
     {
-        $this->{$this->stiAttributeName} = $type;
-    }
-
-    /**
-     * Return the name of the column that hold the object's type.
-     */
-    public function getStiTypeAttributeName(): string
-    {
-        return $this->qualifyColumn($this->stiAttributeName);
+        return (new static())->overloadedUpdateOrCreate(...$args);
     }
 }

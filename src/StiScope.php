@@ -13,11 +13,11 @@ class StiScope implements Scope
      */
     public function apply(Builder $builder, Model $model)
     {
-        /** @var \App\Models\Concerns\SingleTableInheritance $model */
-        $name = $model->getStiTypeName();
+        /** @var \Hpkns\Laravel\Sti\SingleTableInheritance $model */
+        $name = $model->getStiTypeForModel();
 
         if ($name !== null) {
-            $builder->where($model->getStiTypeAttributeName(), '=', $name);
+            $builder->where($model->stiTypeKey(true), '=', $name);
         }
     }
 
